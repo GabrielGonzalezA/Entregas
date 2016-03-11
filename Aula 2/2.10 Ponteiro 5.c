@@ -1,5 +1,5 @@
 #include <stdio.h>
-int v[3]; // O vetor deve ser declarado como uma vari·vel global
+int v[3]; // O vetor deve ser declarado como uma vari√°vel global
 int *primos(void)
 {
     v[0]=1009;
