@@ -11,5 +11,5 @@ int main()
 
 }
 
-Saída:
+SaÃ­da:
 count = 20, *temp = 20, sum = 20
