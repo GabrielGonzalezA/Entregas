@@ -45,6 +45,10 @@
  * 6. ativa a o pino como modo output
  * 7. coloca o HIGH no pino
  */
+void config (*p1)
+{
+	
+	};
 
 int main (void)
 {
