@@ -88,7 +88,8 @@ int main (void)
 		while(1){
 
             //3.1.2 Led Azul
-			PIOA->PIO_SODR = (1 << PIN_LED_BLUE );
+			PIOA->PIO_CODR = (1 << PIN_LED_BLUE );
+			
 			/*
              * Utilize a função delay_ms para fazer o led piscar na frequência
              * escolhida por você.
