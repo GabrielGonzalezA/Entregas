@@ -9,8 +9,8 @@
 
 #include <asf.h>
 
-#include "Driver/pmc_maua.h"
-#include "Driver/pio_maua.h"
+//#include "Driver/pmc_maua.h"
+//#include "Driver/pio_maua.h"
 /*
  * Prototypes
  */
@@ -36,6 +36,9 @@
 #define PIN_LED_BLUE 19
 #define PIN_LED_GREEN 20
 #define PIN_LED_RED 20
+#define PIN_BOTAO 3
+#define MASK_BOTAO (1 << PIN_BOTAO)
+
 
 
 /**
@@ -52,12 +55,10 @@
 int main (void)
 {
 	
-	uint32_t
-
 	/**
 	* Inicializando o clock do uP
 	*/
-	//sysclk_init();
+	sysclk_init();
 	
 	/** 
 	*  Desabilitando o WathDog do uP
@@ -67,11 +68,20 @@ int main (void)
 	// 29.17.4 PMC Peripheral Clock Enable Register 0
 	// 1: Enables the corresponding peripheral clock.
 	// ID_PIOA = 11 - TAB 11-1
-	_pmc_enable_clock_periferico(ID_PIOA);
-	_pmc_enable_clock_periferico(ID_PIOC);
-
+	//_pmc_enable_clock_periferico(ID_PIOA);
+	//_pmc_enable_clock_periferico(ID_PIOC);
+	
+	//ativar o resgistrador responsavel por ativar o clock do periferico a e o b 
+	
+	PMC->PMC_PCER0 = 1 << ID_PIOA;
+	PMC->PMC_PCER0 = 1 << ID_PIOB;
+	PMC->PMC_PCER0 = 1 << ID_PIOC;
+	
 	//31.6.1 PIO Enable Register
-	// 1: Enables the PIO to control the corresponding pin (disables peripheral control of the pin).	
+	// 1: Enables the PIO to control the corresponding pin (disables peripheral control of the pin).
+	
+	//faz os re4gistradores controlar os leds 
+		
 	PIOA->PIO_PER = (1 << PIN_LED_BLUE ) | (1 << PIN_LED_GREEN );
 	PIOC->PIO_PER = (1 << PIN_LED_RED );
 	
@@ -91,13 +101,42 @@ int main (void)
 	// 		0 : do nothing
 	PIOA->PIO_SODR = (1 << PIN_LED_BLUE ) | (1 << PIN_LED_GREEN );
 	PIOC->PIO_SODR = (1 << PIN_LED_RED );
-
+	
+	/*
+	*BOTAO
+	*/
+	//
+	PIOB->PIO_PER = MASK_BOTAO;
+	//desativa o bufer
+	PIOB->PIO_ODR = MASK_BOTAO;
+	//ativar pull-up
+	PIOB->PIO_PUER = MASK_BOTAO;
+	// utilizando o debouncing
+	PIOB->PIO_IFER = MASK_BOTAO;
+	// ativando clock do debouncing
+	PIOB->PIO_IFSCER = MASK_BOTAO;
+	// tempo do clock - metade do clock do sistema -- td=(PIO_SCDR + 1)*2tsys
+	PIOB->PIO_SCDR = 2;
+	
+	
+	
+	
+	
 	/**
 	*	Loop infinito
 	*/
 		while(1){
-
-            /*
+			if((PIOB->PIO_PDSR & MASK_BOTAO)>0)
+			{
+				
+				PIOA->PIO_SODR =  (1 << PIN_LED_BLUE ); //led azul apaga
+				PIOC->PIO_CODR =  (1 << PIN_LED_RED ); //led red apaga
+				PIOA->PIO_SODR =  (1 << PIN_LED_GREEN ); //led verde apaga         
+			}
+			
+			else
+			{
+				/*
              * Utilize a função delay_ms para fazer o led piscar na frequência
              * escolhida por você.
              */
@@ -109,6 +148,8 @@ int main (void)
 			PIOA->PIO_SODR =  (1 << PIN_LED_BLUE ); //led azul apaga
 			PIOA->PIO_CODR =  (1 << PIN_LED_GREEN ); //led verde acende
 			delay_ms(1000);
-			PIOA->PIO_SODR =  (1 << PIN_LED_GREEN ); //led verde apaga      
+			PIOA->PIO_SODR =  (1 << PIN_LED_GREEN ); //led verde apaga
+			}
+                 
 	}
 }
