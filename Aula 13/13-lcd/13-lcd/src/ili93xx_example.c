@@ -75,6 +75,51 @@
 #include "conf_clock.h"
 #include "smc.h"
 
+
+
+#define PIN_PUSHBUTTON_1_MASK	PIO_PB3
+#define PIN_PUSHBUTTON_1_PIO	PIOB
+#define PIN_PUSHBUTTON_1_ID		ID_PIOB
+#define PIN_PUSHBUTTON_1_TYPE	PIO_INPUT
+#define PIN_PUSHBUTTON_1_ATTR	PIO_PULLUP | PIO_DEBOUNCE | PIO_IT_RISE_EDGE
+
+#define PIN_PUSHBUTTON_2_MASK	PIO_PC12
+#define PIN_PUSHBUTTON_2_PIO	PIOC
+#define PIN_PUSHBUTTON_2_ID		ID_PIOC
+#define PIN_PUSHBUTTON_2_TYPE	PIO_INPUT
+#define PIN_PUSHBUTTON_2_ATTR	PIO_PULLUP | PIO_DEBOUNCE | PIO_IT_FALL_EDGE
+
+#define PIN_BUTTON		3
+#define PIN_BUTTON3		12
+
+/** 
+ * Definição dos ports
+ * Ports referentes a cada pino
+ */
+#define PORT_BUT_2		PIOB
+#define PORT_BUT_3		PIOC
+#define time		100
+
+
+/**
+ * Define os IDs dos periféricos associados aos pinos
+ */
+#define ID_BUT_2		ID_PIOB
+#define ID_BUT_3		ID_PIOC
+
+/**
+ *	Define as masks utilziadas
+ */
+#define MASK_BUT_2		(1u << PIN_BUTTON)
+#define MASK_BUT_3		(1u << PIN_BUTTON3)
+
+
+/** IRQ priority for PIO (The lower the value, the greater the priority) */
+#define IRQ_PRIOR_PIO    0
+
+#define Freq 1	//Hz
+
+
 /** Chip select number to be set */
 #define ILI93XX_LCD_CS      1
 
@@ -83,6 +128,8 @@ struct ili93xx_opt_t g_ili93xx_display_opt;
 /**
  *  Configure UART console.
  */
+
+
 static void configure_console(void)
 {
 	const usart_serial_options_t uart_serial_options = {
@@ -94,6 +141,106 @@ static void configure_console(void)
 	sysclk_enable_peripheral_clock(CONSOLE_UART_ID);
 	stdio_serial_init(CONF_UART, &uart_serial_options);
 }
+/* Contador */
+
+
+int contador = 0;
+int tempo = 0;
+char str1[50];
+int n;
+char str2[50];
+int n2;
+
+/**
+ *  Handle Interrupcao botao 1
+ */
+static void Button1_Handler(uint32_t id, uint32_t mask)
+{
+	contador = contador + 1;
+	n = sprintf(str1,"Contador: %d",contador);
+	
+	ili93xx_set_foreground_color(COLOR_RED);
+	ili93xx_draw_string(100, 100, (uint8_t *)str1);
+	/**
+ *  chamar função
+ */
+}
+
+/**
+ *  Handle Interrupcao botao 2.
+ */
+static void Button2_Handler(uint32_t id, uint32_t mask)
+{
+	contador = contador - 1;	
+	n = sprintf(str1,"Contador: %d",contador);
+	
+}
+
+
+/**
+ *  \brief Configure the Pushbuttons
+ *
+ *  Configure the PIO as inputs and generate corresponding interrupt when
+ *  pressed or released.
+ */
+	
+	static void configure_buttons(void)
+{
+	
+	pmc_enable_periph_clk(ID_BUT_2);
+	pmc_enable_periph_clk(ID_BUT_3);
+	
+	/**
+	* Configura entrada
+	*/ 
+	pio_set_input(PORT_BUT_2, MASK_BUT_2, PIO_PULLUP | PIO_DEBOUNCE);
+	pio_set_input(PORT_BUT_3, MASK_BUT_3, PIO_PULLUP | PIO_DEBOUNCE);
+	
+	/*
+	 * Configura divisor do clock para debounce
+	 */
+	pio_set_debounce_filter(PORT_BUT_2, MASK_BUT_2, time);
+	pio_set_debounce_filter(PORT_BUT_3, MASK_BUT_3, time);
+	
+	/* 
+	*	Configura interrupção para acontecer em borda de descida.
+	*/
+	pio_handler_set(PORT_BUT_2, 
+					ID_BUT_2,
+					MASK_BUT_2,  
+					PIO_IT_FALL_EDGE,
+					Button2_Handler);
+					
+	pio_handler_set(PORT_BUT_3,
+					ID_BUT_3,
+					MASK_BUT_3,
+					PIO_IT_FALL_EDGE,
+					Button1_Handler);
+				
+	/*
+	*	Ativa interrupção no periférico B porta do botão
+	*/	
+	pio_enable_interrupt(PORT_BUT_2, MASK_BUT_2);
+	pio_enable_interrupt(PORT_BUT_3, MASK_BUT_3);
+	
+	
+	/*
+	*	Configura a prioridade da interrupção no pORTB
+	*/
+	NVIC_SetPriority((IRQn_Type) ID_BUT_2,3 );
+	NVIC_SetPriority((IRQn_Type) ID_BUT_3,3 );
+
+	
+	/*
+	*	Ativa interrupção no port B
+	*/
+	NVIC_EnableIRQ((IRQn_Type) ID_BUT_2);
+		NVIC_EnableIRQ((IRQn_Type) ID_BUT_3);
+}
+
+
+
+
 
 /**
  * \brief Application entry point for smc_lcd example.
@@ -146,25 +293,39 @@ int main(void)
 	aat31xx_set_backlight(AAT31XX_AVG_BACKLIGHT_LEVEL);
 
 	ili93xx_set_foreground_color(COLOR_WHITE);
-	ili93xx_draw_filled_rectangle(0, 0, ILI93XX_LCD_WIDTH,
-			ILI93XX_LCD_HEIGHT);
+	ili93xx_draw_filled_rectangle(0, 0, ILI93XX_LCD_WIDTH, ILI93XX_LCD_HEIGHT);
+	ili93xx_set_foreground_color(COLOR_RED);
+	ili93xx_draw_filled_rectangle(0, 85, ILI93XX_LCD_WIDTH,	95);
+	ili93xx_set_foreground_color(COLOR_GREEN);
+	ili93xx_draw_filled_rectangle(0, 95, ILI93XX_LCD_WIDTH,	105);
 	/** Turn on LCD */
 	ili93xx_display_on();
 	ili93xx_set_cursor_position(0, 0);
 
 	/** Draw text, image and basic shapes on the LCD */
+	/** cor */
 	ili93xx_set_foreground_color(COLOR_BLACK);
-	ili93xx_draw_string(10, 20, (uint8_t *)"ili93xx_lcd example");
+	 /** escrito */
+	ili93xx_draw_string(10, 20, (uint8_t *)"13 LCD");
+	ili93xx_set_foreground_color(COLOR_BLUE);
+	ili93xx_draw_string(10, 45, (uint8_t *)"Adriana");
+	ili93xx_set_foreground_color(COLOR_BLUEVIOLET);
+	ili93xx_draw_string(10, 65, (uint8_t *)"Gabriel");
 
 	ili93xx_set_foreground_color(COLOR_RED);
-	ili93xx_draw_circle(60, 160, 40);
+	ili93xx_draw_string(100, 100, (uint8_t *)str1);
+	/**  Circulo x y raio*/
+	/**  ili93xx_set_foreground_color(COLOR_RED);
+	ili93xx_draw_circle(60, 160, 80);
 	ili93xx_set_foreground_color(COLOR_GREEN);
 	ili93xx_draw_circle(120, 160, 40);
 	ili93xx_set_foreground_color(COLOR_BLUE);
 	ili93xx_draw_circle(180, 160, 40);
 
 	ili93xx_set_foreground_color(COLOR_VIOLET);
-	ili93xx_draw_line(0, 0, 240, 320);
+	ili93xx_draw_line(0, 0, 240, 320);*/
+	
+
 
 	while (1) {
 	}
