@@ -147,23 +147,23 @@ static void configure_console(void)
 int contador = 0;
 int tempo = 0;
 char str1[50];
-int n;
-char str2[50];
-int n2;
 
 /**
  *  Handle Interrupcao botao 1
  */
 static void Button1_Handler(uint32_t id, uint32_t mask)
 {
-	contador = contador + 1;
-	n = sprintf(str1,"Contador: %d",contador);
+	/*retangulo branco para sobrepor dado anterior*/
+	ili93xx_set_foreground_color(COLOR_WHITE);
+	ili93xx_draw_filled_rectangle(95,95,180,115);
 	
+	/*tirar 'n' se necessário*/
+	sprintf(str1,"Contador: %d",contador);
+		
 	ili93xx_set_foreground_color(COLOR_RED);
-	ili93xx_draw_string(100, 100, (uint8_t *)str1);
-	/**
- *  chamar função
- */
+	ili93xx_draw_string(100, 110, (uint8_t *)str1);
+	contador++;
+
 }
 
 /**
@@ -171,11 +171,42 @@ static void Button1_Handler(uint32_t id, uint32_t mask)
  */
 static void Button2_Handler(uint32_t id, uint32_t mask)
 {
-	contador = contador - 1;	
-	n = sprintf(str1,"Contador: %d",contador);
+	/*retangulo branco para sobrepor dado anterior*/
+	ili93xx_set_foreground_color(COLOR_WHITE);
+	ili93xx_draw_filled_rectangle(95,95,180,115);
 	
+	/*tirar 'n' se necessário*/
+	sprintf(str1,"Contador: %d",contador);
+	
+	ili93xx_set_foreground_color(COLOR_RED);
+	ili93xx_draw_string(100, 110, (uint8_t *)str1);
+	contador--;
 }
 
+
+/**
+ *  Interrupt handler for TC0 interrupt. 
+ */
+void TC0_Handler(void)
+{
+	volatile uint32_t ul_dummy;
+
+    /****************************************************************
+	* Devemos indicar ao TC que a interrupção foi satisfeita.
+    ******************************************************************/
+	ul_dummy = tc_get_status(TC0,0);
+
+	/* Avoid compiler warning */
+	UNUSED(ul_dummy);
+
+	sprintf((uint8_t *)str1, "Tempo: %d", tempo);
+	ili93xx_set_foreground_color(COLOR_WHITE);
+	ili93xx_draw_filled_rectangle(90,190,180,220);
+	ili93xx_set_foreground_color(COLOR_BLACK);
+	ili93xx_draw_string(20,200, (uint8_t *)str1);
+	tempo ++;
+
+}
 
 /**
  *  \brief Configure the Pushbuttons
@@ -235,18 +266,24 @@ static void Button2_Handler(uint32_t id, uint32_t mask)
 	*	Ativa interrupção no port B
 	*/
 	NVIC_EnableIRQ((IRQn_Type) ID_BUT_2);
-		NVIC_EnableIRQ((IRQn_Type) ID_BUT_3);
+	NVIC_EnableIRQ((IRQn_Type) ID_BUT_3);
+}
+
+/**
+ *  Configure Timer Counter 0 to generate an interrupt every 1s.
+ */
+static void configure_tc(void)
+{
+	uint32_t ul_sysclk = sysclk_get_cpu_hz();
+	pmc_enable_periph_clk(ID_TC0);
+	tc_init(TC0,0,TC_CMR_TCCLKS_TIMER_CLOCK5 |TC_CMR_CPCTRG);
+	tc_write_rc(TC0,0,32000);
+	tc_enable_interrupt(TC0,0,TC_IER_CPCS);
+	NVIC_EnableIRQ(ID_TC0);
+	tc_start(TC0,0);
 }
 
 
-
-
-
-/**
- * \brief Application entry point for smc_lcd example.
- *
- * \return Unused (ANSI-C compatibility).
- */
 int main(void)
 {
 	sysclk_init();
@@ -306,14 +343,16 @@ int main(void)
 	/** cor */
 	ili93xx_set_foreground_color(COLOR_BLACK);
 	 /** escrito */
-	ili93xx_draw_string(10, 20, (uint8_t *)"13 LCD");
+	ili93xx_draw_string(10, 20, (uint8_t *)"13 - LCD");
 	ili93xx_set_foreground_color(COLOR_BLUE);
 	ili93xx_draw_string(10, 45, (uint8_t *)"Adriana");
-	ili93xx_set_foreground_color(COLOR_BLUEVIOLET);
+	ili93xx_set_foreground_color(COLOR_BLUE);
 	ili93xx_draw_string(10, 65, (uint8_t *)"Gabriel");
 
-	ili93xx_set_foreground_color(COLOR_RED);
-	ili93xx_draw_string(100, 100, (uint8_t *)str1);
+	/*Configurar botões*/
+	configure_buttons();
+	configure_tc();
+	
 	/**  Circulo x y raio*/
 	/**  ili93xx_set_foreground_color(COLOR_RED);
 	ili93xx_draw_circle(60, 160, 80);
@@ -325,9 +364,9 @@ int main(void)
 	ili93xx_set_foreground_color(COLOR_VIOLET);
 	ili93xx_draw_line(0, 0, 240, 320);*/
 	
-
-
 	while (1) {
 	}
 }
+
+
 
