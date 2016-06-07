@@ -3,6 +3,7 @@
 #include "conf_board.h"
 #include "conf_clock.h"
 #include "smc.h"
+#include <math.h>
 
 /** Chip select number to be set */
 #define ILI93XX_LCD_CS      1
@@ -46,13 +47,14 @@ static int16_t gs_s_adc_values[BUFFER_SIZE] = { 0 };
 int adc_value_old;
 int valorAD[10];
 int flagn = 0;
-
+int res=0;
 /************************************************************************/
 /* HANDLER                                                              */
 /************************************************************************/
 
 static void push_button_handle(uint32_t id, uint32_t mask)
 {
+	//Inicia a leitura após o botão ser pressionado
 	adc_start(ADC);
 }
 
@@ -62,7 +64,6 @@ static void push_button_handle(uint32_t id, uint32_t mask)
 */
 void ADC_Handler(void)
 {
-	int res=0;
 	uint32_t tmp;
 	uint32_t status ;
 
@@ -72,11 +73,10 @@ void ADC_Handler(void)
 	if ((status & ADC_ISR_EOC5)) {
 		tmp = adc_get_channel_value(ADC, ADC_POT_CHANNEL);
 		res=2.4421*tmp;
-
 	}
-
-	sprintf(valorAD, "Resistencia: %d", res);
-	flagn = 1;
+	//Transforma o inteiro (res) em string (valorAD)
+		sprintf(valorAD, "Resistencia: %d", res);
+		flagn = 1;
 }
 
 
@@ -91,7 +91,8 @@ void TC0_Handler(void)
 
 	/* Avoid compiler warning */
 	UNUSED(ul_dummy);
-
+	
+	//Inicia a leitura de acordo com o clock
 	adc_start(ADC);
 
 }
@@ -156,17 +157,18 @@ void configure_botao(void)
 	pio_handler_set(PIN_PUSHBUTTON_1_PIO, PIN_PUSHBUTTON_1_ID,PIN_PUSHBUTTON_1_MASK, PIN_PUSHBUTTON_1_ATTR ,push_button_handle);
 	pio_enable_interrupt(PIN_PUSHBUTTON_1_PIO, PIN_PUSHBUTTON_1_MASK);
 	NVIC_SetPriority((IRQn_Type) PIN_PUSHBUTTON_1_ID, 0);
-	NVIC_EnableIRQ((IRQn_Type) PIN_PUSHBUTTON_1_ID);
+	
+NVIC_EnableIRQ((IRQn_Type) PIN_PUSHBUTTON_1_ID);
 }
 
 static void configure_tc(void)
 {
 	uint32_t ul_sysclk = sysclk_get_cpu_hz();
 	pmc_enable_periph_clk(ID_TC0);
-	tc_init(TC0,0,TC_CMR_TCCLKS_TIMER_CLOCK5 |TC_CMR_CPCTRG);
+	tc_init(TC0,0,TC_CMR_CPCTRG | TC_CMR_TCCLKS_TIMER_CLOCK5);
 	tc_write_rc(TC0,0,32000);
-	tc_enable_interrupt(TC0,0,TC_IER_CPCS);
 	NVIC_EnableIRQ(ID_TC0);
+	tc_enable_interrupt(TC0,0,TC_IER_CPCS);
 	tc_start(TC0,0);
 }
 
@@ -226,11 +228,13 @@ void configure_adc(void)
 
 int main(void)
 {
+	int xcentro,ycentro,raio, altura, largura;
+	double ang;
 	sysclk_init();
 	board_init();
 
 	configure_lcd();
-	configure_botao();
+	//configure_botao();
 	configure_adc();
 	configure_tc();
 
@@ -241,11 +245,35 @@ int main(void)
 	while (1) {
 		if(flagn==1)
 		{
+			/*Retangulo anterior
 			ili93xx_set_foreground_color(COLOR_WHITE);
-			ili93xx_draw_filled_rectangle(0,95,240,130);
+			ili93xx_draw_filled_rectangle(0,95,240,130);*/
+			
+			ili93xx_set_foreground_color(COLOR_WHITE);
+			ili93xx_draw_filled_rectangle(0,95,ILI93XX_LCD_WIDTH, ILI93XX_LCD_HEIGHT);
 			
 			ili93xx_set_foreground_color(COLOR_RED);
 			ili93xx_draw_string(10, 110, valorAD);
+						
+			//Circulo do potenciometro
+			xcentro=120;
+			ycentro=220;
+			raio=50;
+			
+			ili93xx_set_foreground_color(COLOR_BLACK);
+			ili93xx_draw_circle(xcentro, ycentro, raio);
+			
+			
+			//Medidor potenciometro (barra)
+			ang=0.018*res*3.14/180;
+			altura=(raio+5)*sin(ang);
+			largura=(raio+5)*cos(ang);
+						
+			
+			//Configuração Retangulo (x,y,x,y)
+			ili93xx_set_foreground_color(COLOR_BLACK);
+			ili93xx_draw_line((xcentro-largura)-1, ycentro-altura-1,xcentro ,ycentro+1);
+			
 			flagn = 0;
 		}
 
